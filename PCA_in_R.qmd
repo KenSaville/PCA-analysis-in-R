@@ -165,7 +165,7 @@ pca_fit %>% augment(biopsy) %>% ggplot(aes(.fittedPC1, .fittedPC2, color = outco
 
 ## Look at the data in PC coordinates
 
-Next, we plot the rotation matrix. The rotation matrix is stored as `pca_fit$rotation`, but here we\'ll extract it using the `tidy()` function from broom. When applied to `prcomp` objects, the `tidy()` function takes an additional argument `matrix`, which we set to `matrix = "rotation"` to extract the rotation matrix.
+Next, we plot the rotation matrix. The rotation matrix is stored as `pca_fit$rotation`, but here we'll extract it using the `tidy()` function from broom. When applied to `prcomp` objects, the `tidy()` function takes an additional argument `matrix`, which we set to `matrix = "rotation"` to extract the rotation matrix.
 
 ```{r}
 #just looking at the rotation matrix.
@@ -281,7 +281,7 @@ pca_fit %>%
 
 ## Look at the variance explained by each PC
 
-Finally, we\'ll plot the variance explained by each PC. We can again extract this information using the `tidy()` function from broom, now by setting the `matrix` argument to `matrix = "eigenvalues"`.
+Finally, we'll plot the variance explained by each PC. We can again extract this information using the `tidy()` function from broom, now by setting the `matrix` argument to `matrix = "eigenvalues"`.
 
 ```{r}
 pca_fit %>%
@@ -302,3 +302,7 @@ pca_fit %>%
 ```
 
 This shows the percent variation determined by each principle component.
+
+The first component captures 65% of the variation in the data and, as we can see from the first plot in this post, nicely separates the benign samples from the malignant samples.
+
+Next up, apply this analysis to CompGenomR example
