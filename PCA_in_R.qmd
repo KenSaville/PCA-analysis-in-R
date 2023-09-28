@@ -59,6 +59,8 @@ To read a bit about broom ...
 
 # Learning how to run PCA using tidyverse
 
+borrowed from Claus O. Wilke and modified here and there.
+
 Source:
 
 https://clauswilke.com/blog/2020/09/07/pca-tidyverse-style/
@@ -79,3 +81,224 @@ biopsy <- read_csv("https://wilkelab.org/classes/SDS348/data_sets/biopsy.csv")
 
 write_csv(x = biopsy, "biopsy.csv")
 ```
+
+Note - there are no rownames in this data, so samples aren't identified.
+
+The outcome column contains chracters - benign, etc.
+
+In general, when performing PCA, we'll want to do (at least) three things:
+
+1.  Look at the data in PC coordinates.
+
+2.  Look at the rotation matrix.
+
+3.  Look at the variance explained by each PC.
+
+Let's do these three things in turn.
+
+## Look at the data in PC coordinates
+
+We start by running the PCA and storing the result in a variable pca_fit. There are two issues to consider here. First, the prcomp() function can only deal with numeric columns, so we need to remove all non-numeric columns from the data. This is straightforward using the where(is.numeric) tidyselect construct. Second, we normally want to scale the data values to unit variance before PCA. We do so by using the argument scale = TRUE in prcomp().
+
+```{r}
+
+pca_fit <- biopsy %>% 
+  select(where(is.numeric)) %>% # retain only numeric columns
+  prcomp(scale = TRUE) # do PCA on scaled data
+```
+
+As an alternative to `scale = TRUE`, we could also have scaled the data by explicitly invoking the `scale()` function.either way is fine.
+
+As an alternative to `scale = TRUE`, we could also have scaled the data by explicitly invoking the `scale()` function.
+
+```{r eval=FALSE, include = FASLE}
+pca_fit <- biopsy %>%    select(where(is.numeric)) %>%  scale() %>%  prcomp() #
+```
+
+Let's look at the pca_fit object
+
+```{r}
+head(pca_fit)
+
+```
+
+Now, we want to plot the data in PC coordinates. In general, this means combining the PC coordinates with the original dataset, so we can color points by categorical variables present in the original data but removed for the PCA. We do this with the augment() function from broom, which takes as arguments the fitted model and the original data. The columns containing the fitted coordinates are called .fittedPC1, .fittedPC2, etc.
+
+```{r}
+pca_fit %>%
+  augment(biopsy) %>% # add original dataset back in
+  ggplot(aes(.fittedPC1, .fittedPC2, color = outcome)) + 
+  geom_point(size = 1.5) +
+  scale_color_manual(
+    values = c(malignant = "#D55E00", benign = "#0072B2")
+  ) +
+  theme_half_open(12) + background_grid()
+```
+
+Nice now let's break it down
+
+```{r}
+pca_fit %>%
+  augment(biopsy) # add original dataset back in
+  
+```
+
+The above combines the biopsy data with the results of pca. This adds several columns .fittedpc1, .fittedPC2, etc. These are the data points that describe the principle component vectors that can then be plotted. Note the biopsy has a column called outcome. This is used when plotting to map the points to their respective outcomes.
+
+```{r}
+pca_fit %>% augment(biopsy) %>% ggplot(aes(.fittedPC1, .fittedPC2, color = outcome)) + 
+  geom_point(size = 1.5) 
+```
+
+The above results in of PC1 on the x and pc2 on the y using default colors mapped to outcome.
+
+Below the author just adds his own colors and plays with theme and background. Will read his book
+
+```{r}
+pca_fit %>% augment(biopsy) %>% ggplot(aes(.fittedPC1, .fittedPC2, color = outcome)) + 
+  geom_point(size = 1.5) +
+  scale_color_manual(
+    values = c(malignant = "#D55E00", benign = "#0072B2")
+  ) +
+  theme_half_open(12) + background_grid()
+```
+
+## Look at the data in PC coordinates
+
+Next, we plot the rotation matrix. The rotation matrix is stored as `pca_fit$rotation`, but here we\'ll extract it using the `tidy()` function from broom. When applied to `prcomp` objects, the `tidy()` function takes an additional argument `matrix`, which we set to `matrix = "rotation"` to extract the rotation matrix.
+
+```{r}
+#just looking at the rotation matrix.
+pca_fit$rotation
+```
+
+let's extract that using tidy()
+
+```{r}
+# extract rotation matrix
+pca_fit %>%
+  tidy(matrix = "rotation")
+```
+
+retrurns a matrix with
+
+column PC value
+
+clump_thickness 1 -.3
+
+clump_thickness 2 -.1
+
+clump_thickness 3 .86
+
+in other words a "rotation" value for each original variable and each PC from that variable.
+
+Not quite sure where the rotation comes from. Need to brush up on lnear algebra.
+
+#### Now in the context of a plot:
+
+```{r}
+#Now in the context of a plot:
+
+# define arrow style for plotting.  Arrow is a grid (I think) function for describing arrows to add to plots.  Not sure how these numbers were picked
+
+arrow_style <- arrow(
+  angle = 20, ends = "first", type = "closed", length = grid::unit(8, "pt")
+)
+
+# plot rotation matrix
+pca_fit %>%
+  tidy(matrix = "rotation") %>%
+  pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
+  ggplot(aes(PC1, PC2)) +
+  geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
+  geom_text(
+    aes(label = column),
+    hjust = 1, nudge_x = -0.02, 
+    color = "#904C2F"
+  ) +
+  xlim(-1.25, .5) + ylim(-.5, 1) +
+  coord_fixed() + # fix aspect ratio to 1:1
+  theme_minimal_grid(12)
+```
+
+Let's break it down
+
+below, we extract the rotation matrix from pca_fit. In tidy (long) format, and change this to wide using pivot_wider. Below we will try this with spread().
+
+```{r}
+pca_fit %>%
+  tidy(matrix = "rotation") %>%
+  pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value")
+
+```
+
+This makes sense. It took the values in the pC column and used these for names of new columns. adding PC as a prefix to each leading to PC1, PC2 etc. These columns were then populated with values from the values column.
+
+try the above with spread actually, pivot_wider is the new spread. so we'll stick with this.
+
+Now let's see what the plotting parts do
+
+First, the arrow_style was defined using arrow()
+
+The arguments: angle, length, ends, and type just define what type of arrow. They don't refer to the data at all.
+
+arrow_style \<- arrow(
+
+angle = 20, ends = "first", type = "closed", length = grid::unit(8, "pt")
+
+)
+
+The next part makes a geom_segment() plot. geom_segment() draws a straight line between points (x, y) and (xend, yend). In this case we're setting xend and yend to be 0. Thereby making the segments run from each point to the origin. Below I run this plot using geom_point() to show where the points are. Then run the full code from above again.
+
+```{r}
+pca_fit %>%
+  tidy(matrix = "rotation") %>%
+  pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
+  ggplot(aes(PC1, PC2)) +
+ geom_point()
+```
+
+```{r}
+arrow_style <- arrow(
+  angle = 20, ends = "first", type = "closed", length = grid::unit(8, "pt")
+)
+
+# plot rotation matrix
+pca_fit %>%
+  tidy(matrix = "rotation") %>%
+  pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
+  ggplot(aes(PC1, PC2)) + # plotting Pc1 and PC2 rotation values
+  geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
+  geom_text(
+    aes(label= column), 
+    hjust = 1, nudge_x = -0.02,
+    color = "brown"
+  ) +
+  xlim(-1.25, .5) + ylim(-.5, 1) +  #sets x an y scales
+  coord_fixed() + # fix aspect ratio to 1:1
+  theme_minimal_grid(12) #uses a particular theme for better looks
+```
+
+## Look at the variance explained by each PC
+
+Finally, we\'ll plot the variance explained by each PC. We can again extract this information using the `tidy()` function from broom, now by setting the `matrix` argument to `matrix = "eigenvalues"`.
+
+```{r}
+pca_fit %>%
+  tidy(matrix = "eigenvalues")
+```
+
+```{r}
+pca_fit %>%
+  tidy(matrix = "eigenvalues") %>%
+  ggplot(aes(PC, percent)) + #Use PC as X, percent as Y
+  geom_col(fill = "#56B4E9", alpha = 0.8) + #color and transparency lvel
+  scale_x_continuous(breaks = 1:9) +
+  scale_y_continuous(
+    labels = scales::percent_format(), #percent format from scales package
+    expand = expansion(mult = c(0, 0.01)) #not sure what this does
+  ) +
+  theme_minimal_hgrid(12)
+```
+
+This shows the percent variation determined by each principle component.
